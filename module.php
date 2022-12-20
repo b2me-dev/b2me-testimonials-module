@@ -8,6 +8,8 @@
 			add_action('init', array($this, 'register_testimonials_post_type'));
 			add_action('add_meta_boxes', array( $this, 'add_meta_box'));
 			add_action('save_post', array( $this, 'save'));
+			add_filter('manage_testimonial_posts_columns', array( $this, 'add_testimonials_columns'));
+			add_action('manage_testimonial_posts_custom_column', array( $this, 'display_custom_columns'), 10, 2);
 		}
 
 		/* Register Testimonials post type */
@@ -79,10 +81,35 @@
 			wp_nonce_field( 'b2me_testimonials_inner_custom_box', 'b2me_testimonials_nonce' );
 	
 			$organization_name = get_post_meta( $post->ID, 'organization_name', true );
+			$show_stars = get_post_meta( $post->ID, 'show_stars', true );
+			$review_rating = get_post_meta( $post->ID, 'review_rating', true );
 	
 			?>
 				<p><label for="organization_name"><strong>Organization Name</strong></label></p>
 				<input type="text" id="organization_name" name="organization_name" value="<?php echo esc_attr( $organization_name ); ?>" size="50" />
+
+				<br/><br/><hr>
+
+				<p><label for="review_rating"><strong>Review Rating (1-5)</strong></label></p>
+				<input type="text" id="review_rating" name="review_rating" value="<?php echo esc_attr( $review_rating ); ?>" size="50" />
+
+				<br/><br/><hr>
+
+				<p><label for="show_stars"><strong>Show Rating?</strong></label></p>
+				<select name="show_stars" id="show_stars">
+					<option value="<?php echo esc_attr( $show_stars ); ?>" selected><?php echo esc_attr( $show_stars ); ?></option>
+					<?php
+						if ($show_stars == "Yes") {
+							echo '<option value="No">No</option>';
+						} else {
+							if ($show_stars == "") {
+								echo '<option value="No">No</option>';
+							}
+							echo '<option value="Yes">Yes</option>';
+						}
+					?>
+				</select>
+
 			<?php
 		}
 	
@@ -116,8 +143,37 @@
 	
 			/* Update fields */
 			$organization_name = sanitize_text_field( $_POST['organization_name'] );
+			$show_stars = sanitize_text_field( $_POST['show_stars'] );
+			$review_rating = sanitize_text_field( $_POST['review_rating'] );
 
 			update_post_meta( $post_id, 'organization_name', $organization_name );
+			update_post_meta( $post_id, 'show_stars', $show_stars );
+			update_post_meta( $post_id, 'review_rating', $review_rating );
+		}
+
+		/* Display testimonials columns */
+		public function add_testimonials_columns($columns) {
+			return array_merge($columns, 
+						array(
+							'organization_name' => 'Organization',
+							'show_stars' => 'Show Rating?',
+							'review_rating' => 'Rating',
+						)
+					);
+		}
+
+		function display_custom_columns($column, $post_id) {
+			switch ($column) {
+				case 'organization_name':
+					echo get_post_meta($post_id, 'organization_name', true);
+					break;
+				case 'show_stars':
+					echo get_post_meta($post_id, 'show_stars', true);
+					break;
+				case 'review_rating':
+					echo get_post_meta($post_id, 'review_rating', true);
+					break;
+			}
 		}
 
 	}
