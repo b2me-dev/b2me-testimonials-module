@@ -5,11 +5,21 @@
 	class B2Me_Testimonials_Module {
 
 		public function __construct() {
+			add_action( 'wp_enqueue_scripts', array($this, 'b2me_testimonials_module_resources'));
 			add_action('init', array($this, 'register_testimonials_post_type'));
 			add_action('add_meta_boxes', array( $this, 'add_meta_box'));
 			add_action('save_post', array( $this, 'save'));
 			add_filter('manage_testimonial_posts_columns', array( $this, 'add_testimonials_columns'));
 			add_action('manage_testimonial_posts_custom_column', array( $this, 'display_custom_columns'), 10, 2);
+			add_shortcode('b2-testimonials', array($this, 'testimonials'));
+		}
+
+		public function b2me_testimonials_module_resources() {
+			// Main CSS
+			wp_enqueue_style( 'b2me-testimonials-style', get_stylesheet_directory_uri() . '/modules/b2me-testimonials-module/assets/css/style.css');
+		
+			// Main JS
+			wp_enqueue_script( 'b2me-testimonials-scripts', get_stylesheet_directory_uri() . '/modules/b2me-testimonials-module/assets/js/scripts.js', ['jquery']);
 		}
 
 		/* Register Testimonials post type */
@@ -176,6 +186,122 @@
 			}
 		}
 
+		/* Shortcode */
+		public function testimonials($attr) {
+			// Options
+			$attr = shortcode_atts(array(
+				'class' => '',
+				'limit' => '',
+			), $attr);
+
+			// Query
+			$query = new WP_Query([
+				'post_type' => 'testimonial',
+				'posts_per_page' => $attr['limit'],
+			]);
+
+			$reviews = '';
+			$reviewsCount = 0;
+			$reviewsPostCount = $query->post_count; ;
+			$reviewsRatingsTotal = 0;
+			$schema = '';
+
+			// Get testimonials
+			if ( $query->have_posts() ) :
+				while ( $query->have_posts() ) :
+					$query->the_post();
+
+					$title = get_the_title();
+					$featured_img_url = get_the_post_thumbnail_url(get_the_ID(),'full');
+					$content = strip_tags(get_the_content());
+					$organization_name = get_post_meta( get_the_ID(), 'organization_name', true );
+					$review_rating = get_post_meta( get_the_ID(), 'review_rating', true );
+					$review_rating_int = (int)$review_rating;
+					$show_stars = get_post_meta( get_the_ID(), 'show_stars', true );
+					$post_date = get_the_date( 'Y M j' );
+					$star_item = '';
+					$star_element = '';
+
+					// Construct star by review rating
+					for ($i = 0; $i < $review_rating_int; $i++) {
+						$star_item .= '<i class="fa-solid fa-star"></i>';
+					}
+
+					// Check appearance
+					if ($show_stars == 'Yes') {
+						$star_element = '<div>'. $star_item . '</div>';
+					}
+
+					// Construct review items
+					$reviews .= '<li>
+						<div class="b2-testimonials-item">
+							<div class="b2-testimonials-item-col col-img">
+								<img src="'. $featured_img_url .'" alt="'. $title .'" class="b2-img-responsive">
+							</div>
+							<div class="b2-testimonials-item-col col-txt">
+								'. $star_element .'
+								<p>"'. $content .'"</p>
+								<h3>'. $title .'</h3>
+								<h4>'. $organization_name .'</h4>
+							</div>
+						</div>
+					</li>';
+
+					// Construct review items schema
+					$schema .= '{
+						"@type": "Review",
+						"author": "'. $title .'",
+						"datePublished": "'. $post_date .'",
+						"reviewBody": "'. $content .'",
+						"name": "'. $title .'",
+						"reviewRating": {
+							"@type": "Rating",
+							"bestRating": "5",
+							"ratingValue": "'. $review_rating .'",
+							"worstRating": "1"
+						}
+					}';
+
+					// Add up all ratings
+					$reviewsRatingsTotal += $review_rating_int;
+
+					// Monitor current item count
+					$reviewsCount++;
+
+					// Add comma on schema if reviews is not yet complete
+					if ($reviewsCount < $reviewsPostCount) {
+						$schema .= ',';
+					}
+
+				endwhile;
+			endif;
+
+			// Get Review Average
+			$averageRating = $reviewsRatingsTotal / $reviewsCount;
+	
+			// Construct HTML
+			$html = '<ul class="b2-testimonials">
+				'. $reviews .'
+			</ul>
+			<script type="application/ld+json">
+				{
+					"@context": "https://schema.org",
+					"@type": "Product",
+					"aggregateRating": {
+						"@type": "AggregateRating",
+						"ratingValue": "'. $averageRating .'",
+						"reviewCount": "'. $reviewsCount .'"
+					},
+					"description": "",
+					"name": "",
+					"review": [
+						'. $schema .'
+					]
+				}
+			</script>';
+	
+			return $html;
+		}
 	}
 
 	new B2Me_Testimonials_Module();
