@@ -233,7 +233,7 @@
 					}
 
 					// Construct review items
-					$reviews .= '<li>
+					$reviews .= '<li data-aos="fade-up" data-aos-duration=".6" data-aos-once="true">
 						<div class="b2-testimonials-item">
 							<div class="b2-testimonials-item-col col-img">
 								<img src="'. $featured_img_url .'" alt="'. $title .'" class="b2-img-responsive">
